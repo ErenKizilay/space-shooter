@@ -5,7 +5,9 @@ use bevy_rapier3d::dynamics::{GravityScale, RigidBody};
 use std::collections::HashSet;
 use std::time::Duration;
 use bevy::prelude::*;
+use bevy::window::PrimaryWindow;
 use bevy_rapier3d::prelude::*;
+use crate::camera::MainCamera;
 
 #[derive(Component, Debug)]
 pub struct Bullet(Timer);
@@ -31,12 +33,13 @@ pub fn spawn_bullet(
     velocity: Velocity,
     transform: Transform,
 ) {
-    let material = StandardMaterial {
-        base_color: Color::srgb(1.0, 0.1, 0.1),
-        emissive: Color::srgb(10.0, 0.0, 0.0).into(), // high intensity red
-        unlit: true, // optional: disables lighting for pure emissive look
+    let material = materials.add(StandardMaterial {
+        base_color: Color::srgba(1.0, 0.0, 0.0, 0.9), // Semi-transparent red
+        emissive: LinearRgba::from(Color::srgb(10.0, 0.1, 0.1)),        // Intense red glow
+        alpha_mode: AlphaMode::Add,                 // Additive blending
+        unlit: true,
         ..default()
-    };
+    });
     commands.spawn((
         transform,
         velocity,
@@ -46,7 +49,7 @@ pub fn spawn_bullet(
             half_length: 0.05,
         })),
         Collider::capsule_z(1.0, 1.0),
-        MeshMaterial3d(materials.add(material)),
+        MeshMaterial3d(material),
         GravityScale(0.0),
         Bullet(Timer::new(Duration::from_secs(5), TimerMode::Once)),
     )).insert(ActiveEvents::COLLISION_EVENTS);

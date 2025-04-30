@@ -28,7 +28,7 @@ fn spawn_mech(
     space_kit: Res<SpaceKit>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    for i in 1..500 {
+    for i in 1..1000 {
         let index = random_range(0..space_kit.mechs.len());
         let scene_root = SceneRoot(space_kit.mechs.get(index).unwrap().clone());
         let x: f32 = random_range(-2000..2000) as f32;

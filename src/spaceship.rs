@@ -4,13 +4,12 @@ use crate::camera::MainCamera;
 use bevy::app::{App, Plugin};
 use bevy::prelude::*;
 use bevy_rapier3d::geometry::Collider;
-use bevy_rapier3d::prelude::*;
 use bevy_rapier3d::math::Real;
+use bevy_rapier3d::prelude::*;
 
-use std::time::Duration;
-use bevy::math::vec3;
-use bevy_rapier3d::parry::math::Translation;
+use bevy::window::PrimaryWindow;
 use rand::random_range;
+use std::time::Duration;
 
 pub struct SpaceshipPlugin;
 
@@ -23,13 +22,19 @@ struct LaserBeam;
 #[derive(Component)]
 struct ShipTrail;
 
+#[derive(Event, Debug)]
+pub struct SpaceshipThrusted {
+    pub ship_transform: Transform,
+}
+
 #[derive(Resource, Debug)]
 pub struct FireRate(Timer);
 impl Plugin for SpaceshipPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(FireRate(Timer::new(Duration::from_millis(100), TimerMode::Repeating)))
-            .add_systems(Startup, (spawn_space_ship, spawn_laser, spawn_star_streaks))
-            .add_systems(Update, (control_spaceship, fire_bullet));
+            .add_systems(Startup, (spawn_space_ship, spawn_star_streaks))
+            .add_systems(Update, (control_spaceship, fire_bullet))
+            .add_event::<SpaceshipThrusted>();
     }
 }
 
@@ -78,9 +83,9 @@ fn spawn_space_ship(
             ShipTrail,
         ));
         parent.spawn((
-            Mesh3d(meshes.add(Sphere::new(0.1).mesh().ico(5).unwrap())),
+            Mesh3d(meshes.add(Sphere::new(1.0).mesh().ico(5).unwrap())),
             MeshMaterial3d(exhaust_material.clone()),
-            Transform::from_xyz(0.0, 0.2, 17.0),
+            Transform::from_xyz(0.0, 0.0, 100.0),
         ));
     });
 }
@@ -89,6 +94,7 @@ fn control_spaceship(
     keyboard: Res<ButtonInput<KeyCode>>,
     mut ship_query: Query<(&Transform, &mut ExternalForce), With<SpaceShip>>,
     mut trail_query: Query<(&mut Visibility), With<ShipTrail>>,
+    mut thrusted_events: EventWriter<SpaceshipThrusted>,
 ) {
     let (transform, mut force) = ship_query.single_mut();
 
@@ -96,8 +102,8 @@ fn control_spaceship(
     let right = Vec3::from(transform.right());
     let up = Vec3::from(transform.up());
 
-    let thrust_force = 800.0;
-    let rotation_torque = 300.0;
+    let thrust_force = 600.0;
+    let rotation_torque = 200.0;
 
     // Movement (W/S)
     let mut linear_force = Vec3::ZERO;
@@ -105,6 +111,9 @@ fn control_spaceship(
     if keyboard.pressed(KeyCode::KeyW) {
         linear_force -= forward;
         trail_visibility = Visibility::Visible;
+        thrusted_events.send(SpaceshipThrusted {
+            ship_transform: transform.clone(),
+        });
     }
     if keyboard.pressed(KeyCode::KeyS) {
         linear_force += forward;
@@ -153,6 +162,8 @@ fn fire_bullet(
     mut fire_rate: ResMut<FireRate>,
     spaceship_query: Query<&Transform, (With<SpaceShip>, Without<MainCamera>)>,
     input: Res<ButtonInput<KeyCode>>,
+    windows: Query<&Window, With<PrimaryWindow>>,
+    camera_q: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
 ) {
     if fire_rate.0.tick(time.delta()).just_finished() {
         if input.pressed(KeyCode::Space) {
@@ -160,21 +171,38 @@ fn fire_bullet(
             // Forward direction in world space
             let forward = spaceship_transform.forward(); // Vec3
             // Bullet spawn position slightly in front of the ship
-            let spawn_position = spaceship_transform.translation + forward * -15.0;
+            let translation = spaceship_transform.translation;
+            let spawn_position = translation + forward * -15.0;
+            let spawn_position_x = translation + spaceship_transform.left() * 5.;
+            let spawn_position_y = translation + spaceship_transform.right() * 5.;
 
             // Bullet speed
-            let speed = 500.0;
+            let speed = 700.0;
             let forward = spaceship_transform.forward().normalize();
-            spawn_bullet(
-                &mut commands,
-                &mut meshes,
-                &mut materials,
-                Velocity {
-                    linvel: -forward * speed,
-                    ..default()
-                },
-                Transform::from_translation(spawn_position),
-            );
+            for position in vec![spawn_position, spawn_position_x, spawn_position_y] {
+                spawn_bullet(
+                    &mut commands,
+                    &mut meshes,
+                    &mut materials,
+                    Velocity {
+                        linvel: -forward * speed,
+                        ..default()
+                    },
+                    Transform::from_translation(position),
+                );
+            }
+            /*if let Some(ray) = get_mouse_world_ray(windows, camera_q) {
+                spawn_bullet(
+                    &mut commands,
+                    &mut meshes,
+                    &mut materials,
+                    Velocity {
+                        linvel: ray.direction * speed,
+                        ..default()
+                    },
+                    Transform::from_translation(spawn_position),
+                );
+            }*/
         }
     };
 }
@@ -276,11 +304,10 @@ fn spawn_star_streaks(
 
     let quad = meshes.add(Cuboid::new(0.2, 0.2, 0.2));
 
-    for _ in 0..1000 {
-        let x = random_range(-2000..2000) as f32;
-        let y = random_range(-2000..2000) as f32;
-        let z = random_range(-2000..2000) as f32;
-        println!("x: {}, y: {}, z: {}", x, y, z);
+    for _ in 0..10000 {
+        let x = random_range(-1000..1000) as f32;
+        let y = random_range(-1000..1000) as f32;
+        let z = random_range(-1000..1000) as f32;
         commands.spawn((
             Mesh3d(quad.clone()),
             MeshMaterial3d(streak_material.clone()),
@@ -293,10 +320,15 @@ fn spawn_star_streaks(
     }
 }
 
-#[test]
-fn asd() {
-    for _ in 1..100{
-        let random1 = rand::random::<f32>();
-        println!("random1: {}", random1);
-    }
+fn get_mouse_world_ray(
+    windows: Query<&Window, With<PrimaryWindow>>,
+    camera_q: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+) -> Option<Ray3d> {
+    let (camera, cam_transform) = camera_q.single();
+    let window = windows.single();
+
+    let cursor_pos = window.cursor_position()?;
+    let ray = camera.viewport_to_world(cam_transform, cursor_pos).unwrap();
+
+    Some(ray)
 }

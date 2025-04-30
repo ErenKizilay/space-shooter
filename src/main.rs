@@ -10,6 +10,8 @@ mod planet;
 mod rock;
 mod spaceship;
 mod enemy;
+mod crosshair;
+mod effects;
 
 use crate::asset::AssetLoaderPlugin;
 use crate::bullet::BulletPlugin;
@@ -21,7 +23,10 @@ use crate::planet::PlanetPlugin;
 use crate::rock::RockPlugin;
 use crate::spaceship::SpaceshipPlugin;
 use bevy::prelude::*;
+use bevy::render::render_resource::CachedPipelineState::Creating;
 use bevy_rapier3d::prelude::*;
+use crate::crosshair::CrossHairPlugin;
+use crate::effects::EffectsPlugin;
 
 fn main() {
     App::new()
@@ -37,5 +42,7 @@ fn main() {
         .add_plugins(PlanetPlugin)
         .add_plugins(GamePlugin)
         .add_plugins(EnemyPlugin)
+        .add_plugins(CrossHairPlugin)
+        .add_plugins(EffectsPlugin)
         .run();
 }

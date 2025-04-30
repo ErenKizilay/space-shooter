@@ -30,7 +30,7 @@ fn spawn_camera(mut commands: Commands) {
             ..default()
         },
         Transform {
-            translation: Vec3::new(0.0, 5.0, 10.),
+            translation: Vec3::new(0.0, 10.0, 15.),
             rotation: Quat::from_rotation_x(-PI / 4.),
             ..default()
         },
@@ -61,7 +61,7 @@ fn follow_spaceship_smooth(
     let spaceship_transform = spaceship_query.single();
 
     // Offset behind and slightly above the spaceship in its local space
-    let local_offset = spaceship_transform.forward() * 20.0 + Vec3::Y * 5.0;
+    let local_offset = spaceship_transform.forward() * 20.0 + Vec3::Y * 10.0;
     let target_position = spaceship_transform.translation + local_offset;
 
     if let Ok(mut camera_transform) = camera_query.get_single_mut() {

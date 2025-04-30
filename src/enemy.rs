@@ -33,7 +33,7 @@ fn spawn_enemy(
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     let scene_root = SceneRoot(space_kit.enemy.clone());
-    for i in 1..100 {
+    for i in 1..200 {
         let x = random_range(-1000..1000) as f32;
         let y = random_range(-1000..1000) as f32;
         let z = random_range(-1000..1000) as f32;
